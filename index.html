@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAQ Schema Generator | FAQGen</title>
+<meta name="description" content="Free FAQ Schema (JSON-LD) Generator. Create Google-ready FAQPage structured data for your website in seconds.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1>FAQ Schema Generator</h1>
+      <p class="subtitle">Create valid FAQPage JSON-LD structured data for your website — free, instant, no sign-up.</p>
+    </div>
+  </header>
+
+  <main class="container layout">
+    <section class="editor-panel">
+      <div class="panel-header">
+        <h2>Your FAQs</h2>
+        <div class="panel-actions">
+          <button id="importBtn" class="btn btn-secondary" type="button">Import HTML</button>
+          <button id="clearBtn" class="btn btn-secondary" type="button">Clear All</button>
+        </div>
+      </div>
+
+      <div id="faqList" class="faq-list"></div>
+
+      <button id="addFaqBtn" class="btn btn-add" type="button">+ Add Question</button>
+
+      <div id="importArea" class="import-area hidden">
+        <label for="importInput">Paste FAQ HTML (e.g. copied from a page) and we'll try to extract Q&amp;A pairs:</label>
+        <textarea id="importInput" rows="6" placeholder="<h3>Question?</h3><p>Answer...</p>"></textarea>
+        <div class="import-actions">
+          <button id="importParseBtn" class="btn btn-primary" type="button">Extract</button>
+          <button id="importCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="output-panel">
+      <div class="panel-header">
+        <h2>JSON-LD Output</h2>
+        <div class="panel-actions">
+          <button id="copyBtn" class="btn btn-primary" type="button">Copy Code</button>
+          <button id="downloadBtn" class="btn btn-secondary" type="button">Download .html</button>
+        </div>
+      </div>
+      <pre id="output" class="output-code" aria-live="polite"></pre>
+      <p id="copyStatus" class="copy-status" role="status"></p>
+
+      <div class="validation-box">
+        <h3>Validation</h3>
+        <ul id="validationList" class="validation-list"></ul>
+      </div>
+
+      <div class="help-box">
+        <h3>How to use this schema</h3>
+        <ol>
+          <li>Add your questions and answers on the left (plain text answers only — no HTML tags).</li>
+          <li>Copy the generated JSON-LD script.</li>
+          <li>Paste it inside the <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code> of the page that visibly contains this FAQ content.</li>
+          <li>Test it with <a href="https://search.google.com/test/rich-results" target="_blank" rel="noopener noreferrer">Google's Rich Results Test</a>.</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>FAQGen &mdash; Free FAQPage JSON-LD structured data generator.</p>
+    </div>
+  </footer>
+
+  <template id="faqItemTemplate">
+    <div class="faq-item" draggable="true">
+      <div class="faq-item-header">
+        <span class="drag-handle" title="Drag to reorder">&#8942;&#8942;</span>
+        <span class="faq-index"></span>
+        <button class="btn-remove" type="button" title="Remove this question">&times;</button>
+      </div>
+      <label class="field-label">Question</label>
+      <input type="text" class="faq-question" placeholder="e.g. What is structured data?">
+      <label class="field-label">Answer</label>
+      <textarea class="faq-answer" rows="3" placeholder="e.g. Structured data is a standardized format..."></textarea>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
