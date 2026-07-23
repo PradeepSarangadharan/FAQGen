@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online PDF Editor | FAQGen</title>
+<meta name="description" content="Free online PDF editor. Edit text, add text, images, shapes, highlights and comments to any PDF right in your browser — no upload to a server, no sign-up.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="pdf-editor.css">
+</head>
+<body class="pdf-editor-body">
+  <header class="site-header editor-header">
+    <div class="container editor-header-inner">
+      <div>
+        <h1>PDF Editor</h1>
+        <p class="subtitle">Edit text, add text &amp; images, draw shapes, highlight and comment on any PDF &mdash; entirely in your browser.</p>
+      </div>
+      <nav class="editor-nav">
+        <a href="index.html" class="btn btn-secondary">&larr; FAQ Generator</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="editor-main">
+    <div id="dropzone" class="dropzone container">
+      <div class="dropzone-inner">
+        <p class="dropzone-icon" aria-hidden="true">&#128196;</p>
+        <h2>Open a PDF to start editing</h2>
+        <p class="dropzone-hint">Drag &amp; drop a PDF here, or choose a file. Nothing is uploaded &mdash; everything happens locally in your browser.</p>
+        <button id="chooseFileBtn" class="btn btn-primary" type="button">Choose PDF File</button>
+        <input id="fileInput" type="file" accept="application/pdf" class="hidden">
+      </div>
+    </div>
+
+    <div id="editorShell" class="editor-shell hidden">
+      <div class="toolbar" role="toolbar" aria-label="PDF editing tools">
+        <div class="toolbar-group">
+          <button class="tool-btn" data-tool="select" title="Select &amp; move (V)" aria-pressed="true">&#128070;<span>Select</span></button>
+          <button class="tool-btn" data-tool="edit" title="Edit existing text (E)">&#9998;<span>Edit Text</span></button>
+          <button class="tool-btn" data-tool="text" title="Add text (T)">T<span>Text</span></button>
+          <button class="tool-btn" data-tool="image" title="Add image (I)">&#128247;<span>Image</span></button>
+        </div>
+        <div class="toolbar-group">
+          <button class="tool-btn" data-tool="rect" title="Rectangle">&#9645;<span>Rect</span></button>
+          <button class="tool-btn" data-tool="ellipse" title="Ellipse">&#9711;<span>Ellipse</span></button>
+          <button class="tool-btn" data-tool="line" title="Line">&#9585;<span>Line</span></button>
+          <button class="tool-btn" data-tool="arrow" title="Arrow">&#8594;<span>Arrow</span></button>
+        </div>
+        <div class="toolbar-group">
+          <button class="tool-btn" data-tool="highlight" title="Highlight">&#128998;<span>Highlight</span></button>
+          <button class="tool-btn" data-tool="comment" title="Comment">&#128172;<span>Comment</span></button>
+        </div>
+        <div class="toolbar-group">
+          <button id="undoBtn" class="tool-btn" title="Undo (Ctrl+Z)">&#8630;<span>Undo</span></button>
+          <button id="deleteBtn" class="tool-btn" title="Delete selection (Del)">&#128465;<span>Delete</span></button>
+        </div>
+        <div class="toolbar-group toolbar-group-spacer">
+          <button id="zoomOutBtn" class="tool-btn small" title="Zoom out">&minus;</button>
+          <span id="zoomLabel" class="zoom-label">100%</span>
+          <button id="zoomInBtn" class="tool-btn small" title="Zoom in">+</button>
+        </div>
+        <div class="toolbar-group">
+          <button id="newFileBtn" class="btn btn-secondary" type="button">Open New</button>
+          <button id="exportBtn" class="btn btn-primary" type="button">Download PDF</button>
+        </div>
+      </div>
+
+      <div class="editor-body">
+        <aside id="propertyPanel" class="property-panel">
+          <p class="property-hint">Select a tool or an object to see its properties here.</p>
+        </aside>
+
+        <div id="pagesContainer" class="pages-container">
+          <div class="page-nav">
+            <button id="prevPageBtn" class="btn btn-secondary" type="button">&larr; Prev</button>
+            <span id="pageIndicator">Page 1 / 1</span>
+            <button id="nextPageBtn" class="btn btn-secondary" type="button">Next &rarr;</button>
+          </div>
+          <div id="pagesScroll" class="pages-scroll"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="statusToast" class="status-toast hidden" role="status"></div>
+  </main>
+
+  <input id="imageInput" type="file" accept="image/png,image/jpeg" class="hidden">
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>FAQGen &mdash; free browser-based PDF editor. Your files never leave your device.</p>
+    </div>
+  </footer>
+
+  <script src="vendor/pdf.min.js"></script>
+  <script src="vendor/pdf-lib.min.js"></script>
+  <script src="pdf-editor.js"></script>
+</body>
+</html>

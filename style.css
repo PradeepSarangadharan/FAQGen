@@ -63,6 +63,10 @@ body {
   font-size: 1.05rem;
 }
 
+.site-nav {
+  margin-top: 16px;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
