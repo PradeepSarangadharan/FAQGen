@@ -22,10 +22,12 @@ Fill in your questions and answers, copy the generated JSON-LD, and paste it int
 the `<head>` or `<body>` of the page that visibly displays that FAQ content.
 Validate with [Google's Rich Results Test](https://search.google.com/test/rich-results).
 
-## PDF Editor (`pdf-editor.html`)
+## PDF Editor (`pdf-editor/`)
 
-Open, edit, and download PDF files entirely in the browser — nothing is uploaded
-to a server.
+A fully standalone tool — it doesn't share styling or navigation with the FAQ
+generator, and the whole `pdf-editor/` folder can be copied to and hosted from
+any location on its own (e.g. a subfolder of another site). Open, edit, and
+download PDF files entirely in the browser — nothing is uploaded to a server.
 
 - **Edit existing text** — click any text on the page and retype it in place
   (the original text is covered and the replacement is drawn over it)
@@ -39,13 +41,15 @@ to a server.
 
 ### Usage
 
-Open `pdf-editor.html`, drag a PDF in (or choose a file), edit it with the toolbar,
-then click **Download PDF**.
+Open `pdf-editor/index.html`, drag a PDF in (or choose a file), edit it with the
+toolbar, then click **Download PDF**. To deploy it elsewhere, copy the entire
+`pdf-editor/` folder (it's self-contained, including its own CSS and the
+vendored libraries) to the target location.
 
 ## Tech notes
 
 Both tools are plain HTML/CSS/JS with no build step. The PDF editor uses
 [pdf.js](https://mozilla.github.io/pdf.js/) (for rendering and text-layer editing)
 and [pdf-lib](https://pdf-lib.js.org/) (for producing the edited PDF), vendored
-as static files under `vendor/` so the tool works fully offline with no CDN
-dependency.
+as static files under `pdf-editor/vendor/` so the tool works fully offline with
+no CDN dependency.
