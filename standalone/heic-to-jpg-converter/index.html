@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HEIC to JPG Converter — Free Online Tool</title>
+<meta name="description" content="Free HEIC to JPG converter. Convert HEIC/HEIF photos to JPG right in your browser — batch convert, no upload, no sign-up.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <h1>HEIC to JPG Converter</h1>
+      <p class="subtitle">Convert HEIC/HEIF photos to JPG instantly in your browser — free, private, no uploads.</p>
+    </div>
+  </header>
+
+  <main class="container heic-layout">
+    <section class="heic-panel">
+      <div id="dropZone" class="drop-zone">
+        <input id="fileInput" type="file" accept=".heic,.heif,image/heic,image/heif" multiple hidden>
+        <div class="drop-zone-content">
+          <div class="drop-icon" aria-hidden="true">&#8593;</div>
+          <p class="drop-title">Drag &amp; drop HEIC files here</p>
+          <p class="drop-subtitle">or</p>
+          <button id="selectFilesBtn" class="btn btn-primary" type="button">Select HEIC Files</button>
+          <p class="drop-note">Files never leave your device — conversion happens entirely in your browser.</p>
+        </div>
+      </div>
+
+      <div class="options-row">
+        <label class="quality-label" for="qualityRange">
+          JPG Quality: <span id="qualityValue">85%</span>
+        </label>
+        <input id="qualityRange" type="range" min="10" max="100" step="5" value="85">
+      </div>
+
+      <div id="fileListHeader" class="file-list-header hidden">
+        <h2>Files</h2>
+        <div class="panel-actions">
+          <button id="convertAllBtn" class="btn btn-primary" type="button">Convert All</button>
+          <button id="downloadZipBtn" class="btn btn-secondary" type="button" disabled>Download All (ZIP)</button>
+          <button id="clearAllBtn" class="btn btn-secondary" type="button">Clear All</button>
+        </div>
+      </div>
+
+      <ul id="fileList" class="file-list"></ul>
+    </section>
+
+    <section class="help-box heic-help">
+      <h3>About this tool</h3>
+      <ol>
+        <li>Select or drag in one or more <code>.heic</code>/<code>.heif</code> photos (the format iPhones use by default).</li>
+        <li>Adjust the JPG quality if needed, then click <strong>Convert All</strong> (or convert files individually).</li>
+        <li>Download each JPG on its own, or grab all of them at once as a ZIP.</li>
+      </ol>
+      <p class="heic-privacy">Everything runs locally in your browser using WebAssembly — your photos are never uploaded to a server.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Free HEIC to JPG converter.</p>
+    </div>
+  </footer>
+
+  <template id="fileItemTemplate">
+    <li class="file-item">
+      <div class="file-thumb">
+        <img class="file-thumb-img" alt="" hidden>
+        <span class="file-thumb-placeholder">HEIC</span>
+      </div>
+      <div class="file-info">
+        <p class="file-name"></p>
+        <p class="file-status">Waiting&hellip;</p>
+      </div>
+      <div class="file-actions">
+        <button class="btn btn-secondary btn-convert-one" type="button">Convert</button>
+        <a class="btn btn-primary btn-download-one hidden" download>Download</a>
+        <button class="btn-remove-file" type="button" title="Remove">&times;</button>
+      </div>
+    </li>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
