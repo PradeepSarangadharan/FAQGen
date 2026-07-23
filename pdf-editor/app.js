@@ -346,6 +346,14 @@
     const active = document.activeElement;
     const isEditing = active && (active.isContentEditable || active.tagName === 'TEXTAREA' || active.tagName === 'INPUT');
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      if (active && active.isContentEditable) {
+        // The browser's own contenteditable undo can revert an entire in-place
+        // text edit in one step (it doesn't track granular history the way a
+        // real editor does). Swallow it here instead of letting that happen.
+        e.preventDefault();
+        return;
+      }
+      if (isEditing) return; // let native undo behave normally inside textareas/inputs
       e.preventDefault();
       undo();
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotId && !isEditing) {
