@@ -63,6 +63,26 @@ body {
   font-size: 1.05rem;
 }
 
+.tool-nav {
+  margin-top: 14px;
+  font-size: 0.85rem;
+}
+
+.tool-nav a {
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
+.tool-nav a:hover,
+.tool-nav a.active {
+  color: var(--color-primary);
+}
+
+.tool-nav span {
+  margin: 0 8px;
+  color: var(--color-border);
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
