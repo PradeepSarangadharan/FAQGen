@@ -571,7 +571,7 @@
     setTool('select');
     const el = pages[n].annotLayerEl.querySelector(`[data-id="${ann.id}"] .annot-text`);
     if (el) {
-      el.focus();
+      el.focus({ preventScroll: true });
       document.execCommand && document.execCommand('selectAll', false, null);
     }
   }
@@ -581,7 +581,7 @@
     addAnnotation(n, ann);
     setTool('select');
     const popup = pages[n].annotLayerEl.querySelector(`[data-id="${ann.id}"] textarea`);
-    if (popup) popup.focus();
+    if (popup) popup.focus({ preventScroll: true });
   }
 
   function createImageAnnotation(n, x, y, w, h) {
@@ -904,15 +904,21 @@
     p.textEdits[i] = { text: span.textContent, bold, italic, color, family, fontSize };
     addCoverForItem(n, i);
 
-    span.focus();
+    span.focus({ preventScroll: true });
     selectedTextSpan = { span, pageNum: n };
     renderPropertyPanel();
   }
 
   function getItemFontSize(item) {
     if (!item) return 12;
+    // pdf.js itself derives font height from the c,d (y-axis) components of
+    // the text matrix, not a,b (x-axis) — a,b also carries any horizontal
+    // scaling (Tz) applied to the run, which is common in justified text and
+    // is a *different* number from the font's actual point size. Using a,b
+    // here previously made edited text render/export at the wrong size on
+    // any document using horizontal scaling.
     const [a, b, c, d] = item.transform;
-    return Math.hypot(a, b) || Math.hypot(c, d) || 12;
+    return Math.hypot(c, d) || Math.hypot(a, b) || 12;
   }
 
   const FONT_FAMILY_CSS = {
