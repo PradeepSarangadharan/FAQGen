@@ -151,6 +151,11 @@
     ctx.scale(dpr, dpr);
     await page.render({ canvasContext: ctx, viewport }).promise;
 
+    const coverLayerEl = document.createElement('div');
+    coverLayerEl.className = 'cover-layer';
+    coverLayerEl.style.width = viewport.width + 'px';
+    coverLayerEl.style.height = viewport.height + 'px';
+
     const textLayerEl = document.createElement('div');
     textLayerEl.className = 'text-layer';
     textLayerEl.style.width = viewport.width + 'px';
@@ -163,6 +168,7 @@
     annotLayerEl.style.height = viewport.height + 'px';
 
     wrap.appendChild(canvas);
+    wrap.appendChild(coverLayerEl);
     wrap.appendChild(textLayerEl);
     wrap.appendChild(annotLayerEl);
     pagesScroll.appendChild(wrap);
@@ -181,12 +187,19 @@
       if (!item || item.str === undefined) return;
       div.dataset.origText = item.str;
       div.dataset.idx = String(i);
+      div.addEventListener('input', () => {
+        const p = pages[n];
+        if (p && p.textEdits[i]) p.textEdits[i].text = div.textContent;
+      });
     });
+
+    const textFonts = textContent.items.map((it) => detectFontInfo(page, it.fontName));
 
     const existing = pages[n];
     pages[n] = {
       wrap,
       canvas,
+      coverLayerEl,
       textLayerEl,
       annotLayerEl,
       pageWidthPt: baseViewport.width,
@@ -197,15 +210,41 @@
         height: it.height,
         fontName: it.fontName
       })),
+      textFonts,
       textDivs,
+      textEdits: existing ? existing.textEdits : {},
       annotations: existing ? existing.annotations : []
     };
 
     // Re-render any existing floating annotations for this page (e.g. after zoom change)
     pages[n].annotations.forEach((ann) => mountAnnotationEl(n, ann));
 
+    // Reapply any text edits carried over from before this re-render (e.g. a zoom change)
+    applyTextEditsToPage(n);
+
     wireLayerEvents(n);
     applyToolLayerState(n);
+  }
+
+  function detectFontInfo(page, fontName) {
+    try {
+      const fontObj = page.commonObjs.get(fontName);
+      const raw = (fontObj && fontObj.fallbackName) || '';
+      return {
+        family: classifyFamily(raw),
+        bold: !!(fontObj && fontObj.bold),
+        italic: !!(fontObj && fontObj.italic)
+      };
+    } catch (e) {
+      return { family: 'sans-serif', bold: false, italic: false };
+    }
+  }
+
+  function classifyFamily(raw) {
+    const s = (raw || '').toLowerCase();
+    if (s.includes('monospace') || s.includes('courier')) return 'monospace';
+    if (s.includes('serif') && !s.includes('sans-serif')) return 'serif';
+    return 'sans-serif';
   }
 
   function updatePageIndicator() {
@@ -316,7 +355,7 @@
     for (let n = 1; n <= numPages; n++) {
       snapshot[n] = {
         annotations: JSON.parse(JSON.stringify(pages[n].annotations)),
-        edits: pages[n].textDivs.map((d) => d.textContent)
+        textEdits: JSON.parse(JSON.stringify(pages[n].textEdits))
       };
     }
     history.push(snapshot);
@@ -331,11 +370,10 @@
       p.annotLayerEl.innerHTML = '';
       p.annotations = snap[n].annotations;
       p.annotations.forEach((ann) => mountAnnotationEl(n, ann));
-      snap[n].edits.forEach((text, i) => {
-        const div = p.textDivs[i];
-        if (div) div.textContent = text;
-      });
+      p.textEdits = snap[n].textEdits;
+      applyTextEditsToPage(n);
     }
+    selectedTextSpan = null;
     selectAnnotation(null);
     renderPropertyPanel();
   }
@@ -832,22 +870,129 @@
       s.classList.remove('span-editing');
     });
     pushHistory();
-    span.setAttribute('contenteditable', 'true');
-    span.classList.add('span-editing');
-    span.dataset.edited = 'true';
-    span.focus();
-    const wrap = span.closest('.page-wrap');
-    selectedTextSpan = { span, pageNum: wrap ? Number(wrap.dataset.page) : null };
-    renderPropertyPanel();
+    beginEditingSpan(span);
   });
 
   let selectedTextSpan = null;
 
-  document.addEventListener('blur', (e) => {
-    if (e.target && e.target.matches && e.target.matches('.text-layer span[contenteditable="true"]')) {
-      // keep editable until another span or tool change, so property panel can keep applying
-    }
-  }, true);
+  function beginEditingSpan(span) {
+    const wrap = span.closest('.page-wrap');
+    const n = wrap ? Number(wrap.dataset.page) : null;
+    const p = pages[n];
+    const i = Number(span.dataset.idx);
+    const fontInfo = (p.textFonts && p.textFonts[i]) || { family: 'sans-serif', bold: false, italic: false };
+    const existing = p.textEdits[i];
+    const bold = existing ? existing.bold : fontInfo.bold;
+    const italic = existing ? existing.italic : fontInfo.italic;
+    const color = existing ? existing.color : '#1c1f26';
+
+    span.setAttribute('contenteditable', 'true');
+    span.classList.add('span-editing', 'span-edited');
+    span.dataset.edited = 'true';
+    span.dataset.bold = String(bold);
+    span.dataset.italic = String(italic);
+    span.dataset.color = color;
+    // Clear the width-fitting scaleX pdf.js applies to the original text — it
+    // was tuned for the old content and visibly distorts/squishes the glyphs
+    // as the replacement text grows or shrinks.
+    span.style.transform = 'none';
+    applySpanFontStyle(span, fontInfo.family, bold, italic, color);
+
+    p.textEdits[i] = { text: span.textContent, bold, italic, color };
+    addCoverForItem(n, i);
+
+    span.focus();
+    selectedTextSpan = { span, pageNum: n };
+    renderPropertyPanel();
+  }
+
+  function applySpanFontStyle(span, family, bold, italic, color) {
+    span.style.fontFamily = family === 'serif'
+      ? 'Georgia, "Times New Roman", Times, serif'
+      : family === 'monospace'
+        ? '"Courier New", Courier, monospace'
+        : 'Helvetica, Arial, sans-serif';
+    span.style.fontWeight = bold ? '700' : '400';
+    span.style.fontStyle = italic ? 'italic' : 'normal';
+    span.style.color = color;
+    span.style.webkitTextFillColor = color;
+  }
+
+  // Mirrors the export-time cover rectangle exactly (see drawFloatingAnnotation's
+  // sibling logic in exportPdf) so the live preview matches the final PDF.
+  function addCoverForItem(n, i) {
+    const p = pages[n];
+    if (p.coverLayerEl.querySelector(`[data-idx="${i}"]`)) return;
+    const item = p.textItems[i];
+    if (!item) return;
+    const [a, b, c, d, e, f] = item.transform;
+    const fontSize = Math.hypot(a, b) || Math.hypot(c, d) || 10;
+    const width = item.width || fontSize;
+    const height = item.height || fontSize * 1.15;
+    const rectX = e - 0.5;
+    const rectYBottom = f - height * 0.28;
+    const rectW = width + 4;
+    const rectH = height * 1.1;
+    const topDownTopPt = p.pageHeightPt - (rectYBottom + rectH);
+
+    const cover = document.createElement('div');
+    cover.className = 'text-cover';
+    cover.dataset.idx = String(i);
+    cover.style.left = ptToPx(rectX) + 'px';
+    cover.style.top = ptToPx(topDownTopPt) + 'px';
+    cover.style.width = ptToPx(rectW) + 'px';
+    cover.style.height = ptToPx(rectH) + 'px';
+    p.coverLayerEl.appendChild(cover);
+  }
+
+  // Rebuilds every text span's visible state (edited or original) from
+  // pages[n].textEdits — the durable source of truth. Used after a re-render
+  // (e.g. zoom change) and after undo, so live edits always survive both.
+  function applyTextEditsToPage(n) {
+    const p = pages[n];
+    p.coverLayerEl.innerHTML = '';
+    p.textDivs.forEach((span, i) => {
+      span.removeAttribute('contenteditable');
+      span.classList.remove('span-editing');
+      const edit = p.textEdits[i];
+      if (edit) {
+        const fontInfo = (p.textFonts && p.textFonts[i]) || { family: 'sans-serif' };
+        span.textContent = edit.text;
+        span.dataset.edited = 'true';
+        span.dataset.bold = String(edit.bold);
+        span.dataset.italic = String(edit.italic);
+        span.dataset.color = edit.color;
+        span.style.transform = 'none';
+        span.classList.add('span-edited');
+        applySpanFontStyle(span, fontInfo.family, edit.bold, edit.italic, edit.color);
+        addCoverForItem(n, i);
+      } else {
+        span.textContent = span.dataset.origText;
+        delete span.dataset.edited;
+        span.classList.remove('span-edited');
+        span.style.color = '';
+        span.style.webkitTextFillColor = '';
+        span.style.fontWeight = '';
+        span.style.fontStyle = '';
+        span.style.fontFamily = '';
+      }
+    });
+  }
+
+  function updateSpanEditState(span, patch) {
+    const wrap = span.closest('.page-wrap');
+    const n = Number(wrap.dataset.page);
+    const p = pages[n];
+    const i = Number(span.dataset.idx);
+    const fontInfo = (p.textFonts && p.textFonts[i]) || { family: 'sans-serif' };
+    const cur = p.textEdits[i] || { text: span.textContent, bold: false, italic: false, color: '#1c1f26' };
+    const next = Object.assign({}, cur, patch);
+    p.textEdits[i] = next;
+    span.dataset.bold = String(next.bold);
+    span.dataset.italic = String(next.italic);
+    span.dataset.color = next.color;
+    applySpanFontStyle(span, fontInfo.family, next.bold, next.italic, next.color);
+  }
 
   // ============================================================
   // Property panel
@@ -986,24 +1131,20 @@
 
     const currentColor = span.dataset.color || '#1c1f26';
     colorRow('Text color', currentColor, (v) => {
-      span.dataset.color = v;
-      span.style.color = v;
-      span.style.webkitTextFillColor = v;
+      updateSpanEditState(span, { color: v });
     });
     toggleRow([
       {
         label: 'B', active: span.dataset.bold === 'true',
         onClick: () => {
-          span.dataset.bold = String(span.dataset.bold !== 'true');
-          span.style.fontWeight = span.dataset.bold === 'true' ? '700' : '400';
+          updateSpanEditState(span, { bold: span.dataset.bold !== 'true' });
           renderPropertyPanel();
         }
       },
       {
         label: 'I', active: span.dataset.italic === 'true',
         onClick: () => {
-          span.dataset.italic = String(span.dataset.italic !== 'true');
-          span.style.fontStyle = span.dataset.italic === 'true' ? 'italic' : 'normal';
+          updateSpanEditState(span, { italic: span.dataset.italic !== 'true' });
           renderPropertyPanel();
         }
       }
@@ -1057,13 +1198,20 @@
     try {
       const pdfDoc = await PDFDocument.load(originalBytes.slice(0));
       const fontCache = {};
-      async function getFont(bold, italic) {
-        const key = (bold ? 'b' : '') + (italic ? 'i' : '');
+      const FONT_GROUPS = {
+        serif: [StandardFonts.TimesRoman, StandardFonts.TimesRomanBold, StandardFonts.TimesRomanItalic, StandardFonts.TimesRomanBoldItalic],
+        monospace: [StandardFonts.Courier, StandardFonts.CourierBold, StandardFonts.CourierOblique, StandardFonts.CourierBoldOblique],
+        'sans-serif': [StandardFonts.Helvetica, StandardFonts.HelveticaBold, StandardFonts.HelveticaOblique, StandardFonts.HelveticaBoldOblique]
+      };
+      async function getFont(bold, italic, family) {
+        const fam = FONT_GROUPS[family] ? family : 'sans-serif';
+        const key = fam + '|' + (bold ? 'b' : '') + (italic ? 'i' : '');
         if (fontCache[key]) return fontCache[key];
-        let std = StandardFonts.Helvetica;
-        if (bold && italic) std = StandardFonts.HelveticaBoldOblique;
-        else if (bold) std = StandardFonts.HelveticaBold;
-        else if (italic) std = StandardFonts.HelveticaOblique;
+        const [regular, boldFont, italicFont, boldItalicFont] = FONT_GROUPS[fam];
+        let std = regular;
+        if (bold && italic) std = boldItalicFont;
+        else if (bold) std = boldFont;
+        else if (italic) std = italicFont;
         const f = await pdfDoc.embedFont(std);
         fontCache[key] = f;
         return f;
@@ -1088,12 +1236,11 @@
         const p = pages[n];
 
         // 1. Text-layer edits: cover original glyphs, draw replacement.
-        for (let i = 0; i < p.textDivs.length; i++) {
-          const span = p.textDivs[i];
-          if (span.dataset.edited !== 'true') continue;
+        for (const [idxStr, edit] of Object.entries(p.textEdits)) {
+          const i = Number(idxStr);
           const item = p.textItems[i];
           if (!item) continue;
-          const newText = span.textContent;
+          const newText = edit.text;
           const [a, b, c, d, e, f] = item.transform;
           const fontSize = Math.hypot(a, b) || Math.hypot(c, d) || 10;
           const width = item.width || (newText.length * fontSize * 0.5);
@@ -1108,11 +1255,9 @@
           });
 
           if (newText.trim().length) {
-            const bold = span.dataset.bold === 'true';
-            const italic = span.dataset.italic === 'true';
-            const colorHex = span.dataset.color || '#1c1f26';
-            const [r, g, bl] = hexToRgbTriplet(colorHex);
-            const font = await getFont(bold, italic);
+            const fontInfo = (p.textFonts && p.textFonts[i]) || { family: 'sans-serif' };
+            const [r, g, bl] = hexToRgbTriplet(edit.color || '#1c1f26');
+            const font = await getFont(edit.bold, edit.italic, fontInfo.family);
             pdfPage.drawText(newText, { x: e, y: f, size: fontSize, font, color: rgb(r, g, bl) });
           }
         }

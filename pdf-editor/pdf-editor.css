@@ -237,6 +237,7 @@
   display: block;
 }
 
+.cover-layer,
 .text-layer,
 .annot-layer {
   position: absolute;
@@ -244,6 +245,18 @@
   overflow: hidden;
   line-height: 1;
   transform-origin: 0 0;
+}
+
+.cover-layer {
+  pointer-events: none;
+}
+
+.text-cover {
+  position: absolute;
+  /* Always white, independent of app theme — this masks the original
+     PDF page glyphs, which are rendered on a white canvas regardless of
+     whether the app UI is in light or dark mode. */
+  background: #ffffff;
 }
 
 .text-layer {
@@ -268,11 +281,16 @@
   background: rgba(79, 70, 229, 0.08);
 }
 
+/* Persists after the edit is committed (span no longer focused), so the
+   live preview keeps showing the replacement text — matching the exported
+   PDF — instead of reverting to invisible/transparent. */
+.text-layer span.span-edited {
+  cursor: text;
+}
+
 .text-layer span.span-editing {
   outline: 2px solid var(--color-primary);
   background: rgba(79, 70, 229, 0.08);
-  color: #111 !important;
-  -webkit-text-fill-color: #111;
 }
 
 .text-layer span.span-edited::after {
