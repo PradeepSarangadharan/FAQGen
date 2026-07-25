@@ -41,7 +41,7 @@
   const pages = {};
 
   const DEFAULTS = {
-    text: { fontSize: 14, color: '#1c1f26', bold: false, italic: false },
+    text: { fontSize: 14, color: '#1c1f26', bold: false, italic: false, family: 'sans-serif' },
     shape: { stroke: '#dc2626', strokeWidth: 2, fill: '#dc2626', fillOpacity: 0 },
     highlight: { color: '#fde047', opacity: 0.45 },
     comment: { color: '#fbbf24' }
@@ -564,13 +564,14 @@
     const ann = {
       id: newId(), type: 'text', x, y, w: 180, h: DEFAULTS.text.fontSize * 1.4,
       text: 'New text', fontSize: toolDefaults.text.fontSize,
-      color: toolDefaults.text.color, bold: toolDefaults.text.bold, italic: toolDefaults.text.italic
+      color: toolDefaults.text.color, bold: toolDefaults.text.bold, italic: toolDefaults.text.italic,
+      family: toolDefaults.text.family
     };
     addAnnotation(n, ann);
     setTool('select');
     const el = pages[n].annotLayerEl.querySelector(`[data-id="${ann.id}"] .annot-text`);
     if (el) {
-      el.focus();
+      el.focus({ preventScroll: true });
       document.execCommand && document.execCommand('selectAll', false, null);
     }
   }
@@ -580,7 +581,7 @@
     addAnnotation(n, ann);
     setTool('select');
     const popup = pages[n].annotLayerEl.querySelector(`[data-id="${ann.id}"] textarea`);
-    if (popup) popup.focus();
+    if (popup) popup.focus({ preventScroll: true });
   }
 
   function createImageAnnotation(n, x, y, w, h) {
@@ -633,7 +634,7 @@
       inner.style.color = ann.color;
       inner.style.fontWeight = ann.bold ? '700' : '400';
       inner.style.fontStyle = ann.italic ? 'italic' : 'normal';
-      inner.style.fontFamily = 'Helvetica, Arial, sans-serif';
+      inner.style.fontFamily = FONT_FAMILY_CSS[ann.family] || FONT_FAMILY_CSS['sans-serif'];
       inner.textContent = ann.text;
       inner.addEventListener('input', () => { ann.text = inner.textContent; });
       inner.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -885,6 +886,8 @@
     const bold = existing ? existing.bold : fontInfo.bold;
     const italic = existing ? existing.italic : fontInfo.italic;
     const color = existing ? existing.color : '#1c1f26';
+    const family = existing ? existing.family : fontInfo.family;
+    const fontSize = existing ? existing.fontSize : getItemFontSize(p.textItems[i]);
 
     span.setAttribute('contenteditable', 'true');
     span.classList.add('span-editing', 'span-edited');
@@ -896,26 +899,41 @@
     // was tuned for the old content and visibly distorts/squishes the glyphs
     // as the replacement text grows or shrinks.
     span.style.transform = 'none';
-    applySpanFontStyle(span, fontInfo.family, bold, italic, color);
+    applySpanFontStyle(span, family, bold, italic, color, fontSize);
 
-    p.textEdits[i] = { text: span.textContent, bold, italic, color };
+    p.textEdits[i] = { text: span.textContent, bold, italic, color, family, fontSize };
     addCoverForItem(n, i);
 
-    span.focus();
+    span.focus({ preventScroll: true });
     selectedTextSpan = { span, pageNum: n };
     renderPropertyPanel();
   }
 
-  function applySpanFontStyle(span, family, bold, italic, color) {
-    span.style.fontFamily = family === 'serif'
-      ? 'Georgia, "Times New Roman", Times, serif'
-      : family === 'monospace'
-        ? '"Courier New", Courier, monospace'
-        : 'Helvetica, Arial, sans-serif';
+  function getItemFontSize(item) {
+    if (!item) return 12;
+    // pdf.js itself derives font height from the c,d (y-axis) components of
+    // the text matrix, not a,b (x-axis) — a,b also carries any horizontal
+    // scaling (Tz) applied to the run, which is common in justified text and
+    // is a *different* number from the font's actual point size. Using a,b
+    // here previously made edited text render/export at the wrong size on
+    // any document using horizontal scaling.
+    const [a, b, c, d] = item.transform;
+    return Math.hypot(c, d) || Math.hypot(a, b) || 12;
+  }
+
+  const FONT_FAMILY_CSS = {
+    serif: 'Georgia, "Times New Roman", Times, serif',
+    monospace: '"Courier New", Courier, monospace',
+    'sans-serif': 'Helvetica, Arial, sans-serif'
+  };
+
+  function applySpanFontStyle(span, family, bold, italic, color, fontSize) {
+    span.style.fontFamily = FONT_FAMILY_CSS[family] || FONT_FAMILY_CSS['sans-serif'];
     span.style.fontWeight = bold ? '700' : '400';
     span.style.fontStyle = italic ? 'italic' : 'normal';
     span.style.color = color;
     span.style.webkitTextFillColor = color;
+    if (fontSize) span.style.fontSize = ptToPx(fontSize) + 'px';
   }
 
   // Mirrors the export-time cover rectangle exactly (see drawFloatingAnnotation's
@@ -925,8 +943,8 @@
     if (p.coverLayerEl.querySelector(`[data-idx="${i}"]`)) return;
     const item = p.textItems[i];
     if (!item) return;
-    const [a, b, c, d, e, f] = item.transform;
-    const fontSize = Math.hypot(a, b) || Math.hypot(c, d) || 10;
+    const [, , , , e, f] = item.transform;
+    const fontSize = getItemFontSize(item);
     const width = item.width || fontSize;
     const height = item.height || fontSize * 1.15;
     const rectX = e - 0.5;
@@ -956,7 +974,6 @@
       span.classList.remove('span-editing');
       const edit = p.textEdits[i];
       if (edit) {
-        const fontInfo = (p.textFonts && p.textFonts[i]) || { family: 'sans-serif' };
         span.textContent = edit.text;
         span.dataset.edited = 'true';
         span.dataset.bold = String(edit.bold);
@@ -964,7 +981,7 @@
         span.dataset.color = edit.color;
         span.style.transform = 'none';
         span.classList.add('span-edited');
-        applySpanFontStyle(span, fontInfo.family, edit.bold, edit.italic, edit.color);
+        applySpanFontStyle(span, edit.family, edit.bold, edit.italic, edit.color, edit.fontSize);
         addCoverForItem(n, i);
       } else {
         span.textContent = span.dataset.origText;
@@ -975,6 +992,7 @@
         span.style.fontWeight = '';
         span.style.fontStyle = '';
         span.style.fontFamily = '';
+        span.style.fontSize = '';
       }
     });
   }
@@ -985,13 +1003,16 @@
     const p = pages[n];
     const i = Number(span.dataset.idx);
     const fontInfo = (p.textFonts && p.textFonts[i]) || { family: 'sans-serif' };
-    const cur = p.textEdits[i] || { text: span.textContent, bold: false, italic: false, color: '#1c1f26' };
+    const cur = p.textEdits[i] || {
+      text: span.textContent, bold: false, italic: false, color: '#1c1f26',
+      family: fontInfo.family, fontSize: getItemFontSize(p.textItems[i])
+    };
     const next = Object.assign({}, cur, patch);
     p.textEdits[i] = next;
     span.dataset.bold = String(next.bold);
     span.dataset.italic = String(next.italic);
     span.dataset.color = next.color;
-    applySpanFontStyle(span, fontInfo.family, next.bold, next.italic, next.color);
+    applySpanFontStyle(span, next.family, next.bold, next.italic, next.color, next.fontSize);
   }
 
   // ============================================================
@@ -1066,6 +1087,47 @@
     propertyPanel.appendChild(row);
   }
 
+  const FONT_FAMILY_OPTIONS = [
+    { value: 'serif', label: 'Times New Roman (serif)' },
+    { value: 'sans-serif', label: 'Helvetica (sans-serif)' },
+    { value: 'monospace', label: 'Courier New (monospace)' }
+  ];
+
+  function selectRow(label, value, options, onChange) {
+    const row = document.createElement('div');
+    row.className = 'property-row';
+    const l = document.createElement('label');
+    l.textContent = label;
+    const select = document.createElement('select');
+    options.forEach((opt) => {
+      const o = document.createElement('option');
+      o.value = opt.value;
+      o.textContent = opt.label;
+      if (opt.value === value) o.selected = true;
+      select.appendChild(o);
+    });
+    select.addEventListener('change', () => onChange(select.value));
+    row.appendChild(l); row.appendChild(select);
+    propertyPanel.appendChild(row);
+  }
+
+  function numberRow(label, value, min, max, onChange) {
+    const row = document.createElement('div');
+    row.className = 'property-row';
+    const l = document.createElement('label');
+    l.textContent = label;
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.min = min; input.max = max; input.step = 0.5;
+    input.value = Math.round(value * 10) / 10;
+    input.addEventListener('change', () => {
+      const v = Number(input.value);
+      if (!Number.isNaN(v) && v > 0) onChange(v);
+    });
+    row.appendChild(l); row.appendChild(input);
+    propertyPanel.appendChild(row);
+  }
+
   function toggleRow(options) {
     const row = document.createElement('div');
     row.className = 'property-row property-toggle-row';
@@ -1086,6 +1148,7 @@
     const rerender = () => mountAnnotationEl(pageNum, ann);
 
     if (ann.type === 'text') {
+      selectRow('Font family', ann.family, FONT_FAMILY_OPTIONS, (v) => { ann.family = v; rerender(); });
       rangeRow('Font size', ann.fontSize, 8, 72, 1, (v) => { ann.fontSize = v; rerender(); }, (v) => v + 'pt');
       colorRow('Text color', ann.color, (v) => { ann.color = v; rerender(); });
       toggleRow([
@@ -1126,8 +1189,20 @@
     panelTitle('Edit text');
     const note = document.createElement('p');
     note.className = 'property-note';
-    note.textContent = 'Type directly on the page. Formatting below applies only to your edited text.';
+    note.textContent = 'Detected from the original document — change if it doesn\'t look right.';
     propertyPanel.appendChild(note);
+
+    const wrap = span.closest('.page-wrap');
+    const n = Number(wrap.dataset.page);
+    const i = Number(span.dataset.idx);
+    const edit = pages[n].textEdits[i];
+
+    selectRow('Font family', edit.family, FONT_FAMILY_OPTIONS, (v) => {
+      updateSpanEditState(span, { family: v });
+    });
+    numberRow('Font size (pt)', edit.fontSize, 4, 144, (v) => {
+      updateSpanEditState(span, { fontSize: v });
+    });
 
     const currentColor = span.dataset.color || '#1c1f26';
     colorRow('Text color', currentColor, (v) => {
@@ -1153,6 +1228,7 @@
 
   function buildDefaultTextProperties() {
     panelTitle('Add text');
+    selectRow('Font family', toolDefaults.text.family, FONT_FAMILY_OPTIONS, (v) => toolDefaults.text.family = v);
     rangeRow('Font size', toolDefaults.text.fontSize, 8, 72, 1, (v) => toolDefaults.text.fontSize = v, (v) => v + 'pt');
     colorRow('Text color', toolDefaults.text.color, (v) => toolDefaults.text.color = v);
     const note = document.createElement('p');
@@ -1241,10 +1317,13 @@
           const item = p.textItems[i];
           if (!item) continue;
           const newText = edit.text;
-          const [a, b, c, d, e, f] = item.transform;
-          const fontSize = Math.hypot(a, b) || Math.hypot(c, d) || 10;
-          const width = item.width || (newText.length * fontSize * 0.5);
-          const height = item.height || fontSize * 1.15;
+          const [, , , , e, f] = item.transform;
+          // The cover must hide the ORIGINAL glyphs, so its size is always
+          // based on the source item's own metrics — independent of whatever
+          // font size the user picks for the replacement text below.
+          const origFontSize = getItemFontSize(item);
+          const width = item.width || (newText.length * origFontSize * 0.5);
+          const height = item.height || origFontSize * 1.15;
 
           pdfPage.drawRectangle({
             x: e - 0.5,
@@ -1255,10 +1334,9 @@
           });
 
           if (newText.trim().length) {
-            const fontInfo = (p.textFonts && p.textFonts[i]) || { family: 'sans-serif' };
             const [r, g, bl] = hexToRgbTriplet(edit.color || '#1c1f26');
-            const font = await getFont(edit.bold, edit.italic, fontInfo.family);
-            pdfPage.drawText(newText, { x: e, y: f, size: fontSize, font, color: rgb(r, g, bl) });
+            const font = await getFont(edit.bold, edit.italic, edit.family);
+            pdfPage.drawText(newText, { x: e, y: f, size: edit.fontSize || origFontSize, font, color: rgb(r, g, bl) });
           }
         }
 
@@ -1282,7 +1360,7 @@
 
   async function drawFloatingAnnotation(pdfPage, pageH, ann, getFont, getImage) {
     if (ann.type === 'text') {
-      const font = await getFont(ann.bold, ann.italic);
+      const font = await getFont(ann.bold, ann.italic, ann.family);
       const [r, g, b] = hexToRgbTriplet(ann.color);
       const lines = String(ann.text || '').split('\n');
       let cursorY = pageH - ann.y - ann.fontSize;
